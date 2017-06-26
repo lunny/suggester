@@ -35,6 +35,13 @@ func main() {
 	t.Use(tango.Logging())
 	t.Use(tango.Recovery(*isDebug))
 
+	t.Get("/status/:prefix", func(ctx *tango.Context) {
+		total := indexStatus(ctx.Param("prefix"))
+		ctx.ServeJSON(map[string]interface{}{
+			"total": total,
+		})
+	})
+
 	t.Put("/:prefix/:unit_id/:word/:id", func(ctx *tango.Context) {
 		prefix := ctx.Param("prefix")
 		word := ctx.Param("word")

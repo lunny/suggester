@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/syndtr/goleveldb/leveldb"
@@ -65,26 +66,73 @@ func generateKeywords(c string) map[string]struct{} {
 	return kws
 }
 
+var (
+	statis     = make(map[string]int64)
+	statisLock sync.RWMutex
+)
+
+func indexStatus(prefix string) int64 {
+	statisLock.RLock()
+	defer statisLock.RUnlock()
+	return statis[prefix]
+}
+
+func statisAdd(prefix string, cnt int64) {
+	statisLock.Lock()
+	statis[prefix] += cnt
+	statisLock.Unlock()
+}
+
 // addIndex
 func addIndex(prefix, c string, id, unitID int64) error {
 	c = strings.ToUpper(string(c))
-	for kw := range generateKeywords(c) {
-		err := indexDB.Put(buildKey(prefix, unitID, kw, id), []byte(string(c)), nil)
-		if err != nil {
+	words := generateKeywords(c)
+	for kw := range words {
+		if err := indexDB.Put(buildKey(prefix, unitID, kw, id), []byte(string(c)), nil); err != nil {
 			return err
 		}
 	}
+
+	beforeTotal := indexStatus(prefix)
+	if beforeTotal == 0 {
+		res, err := indexDB.Get([]byte(fmt.Sprintf(":%s:meta:", prefix)), nil)
+		if err != nil && err != leveldb.ErrNotFound {
+			return err
+		}
+		if len(res) > 0 {
+			beforeTotal, err = strconv.ParseInt(string(res), 10, 64)
+			if err != nil {
+				return err
+			}
+			statisAdd(prefix, beforeTotal)
+		}
+	}
+
+	statisAdd(prefix, int64(len(words)))
+
+	if err := indexDB.Put([]byte(fmt.Sprintf(":%s:meta:", prefix)),
+		[]byte(fmt.Sprintf("%d", beforeTotal+int64(len(words)))), nil); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 // delIndex
 func delIndex(prefix, c string, id, unitID int64) error {
 	c = strings.ToUpper(string(c))
-	for kw := range generateKeywords(c) {
+	words := generateKeywords(c)
+	for kw := range words {
 		err := indexDB.Delete(buildKey(prefix, unitID, kw, id), nil)
 		if err != nil {
 			return err
 		}
+	}
+	statisAdd(prefix, -int64(len(words)))
+
+	if err := indexDB.Put([]byte(fmt.Sprintf(":%s:meta:", prefix)),
+		[]byte(fmt.Sprintf("%d", indexStatus(prefix))), nil); err != nil {
+		return err
 	}
 	return nil
 }

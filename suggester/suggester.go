@@ -24,6 +24,30 @@ func New(urlPrefix string) *Client {
 	return &Client{strings.TrimRight(urlPrefix, "/")}
 }
 
+// Status return total records
+func (c *Client) Status(prefix string) (int64, error) {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/status/%s", c.URLPrefix, prefix), nil)
+	if err != nil {
+		return 0, err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	var result = make(map[string]interface{})
+	if err = json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return 0, err
+	}
+
+	if resp.StatusCode/100 != 2 {
+		return 0, errors.New(result["err"].(string))
+	}
+
+	return int64(result["total"].(float64)), nil
+}
+
 // AddIndex add some indexes
 func (c *Client) AddIndex(prefix, word string, id, unitID int64) error {
 	req, err := http.NewRequest("PUT", fmt.Sprintf("%s/%s/%d/%s/%d", c.URLPrefix, prefix, unitID, word, id), nil)

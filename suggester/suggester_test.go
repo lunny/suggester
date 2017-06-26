@@ -17,13 +17,16 @@ func TestSearch(t *testing.T) {
 	}
 
 	client := New("http://127.0.0.1:9191/")
+
 	var unitID int64 = 1
 	var prefix = "k"
+	total, err := client.Status(prefix)
+	assert.NoError(t, err)
+	assert.EqualValues(t, 0, total)
+
 	for i, p := range plates {
 		err := client.AddIndex(prefix, p, int64(i), unitID)
-		if err != nil {
-			t.Fatal(err)
-		}
+		assert.NoError(t, err)
 	}
 
 	var searchKases = map[string][]Result{
