@@ -1,6 +1,10 @@
 # Suggester
 
-Suggester is designed as a web service for providing input suggestions. It has 3 features,
+Suggester is designed as a web service for providing input suggestions. It has 4 URLs,
+
+* Status
+
+`GET /:prefix/status`
 
 * Add Index
 
@@ -8,7 +12,7 @@ Suggester is designed as a web service for providing input suggestions. It has 3
 
 * Del Index
 
-`PUT /:prefix/:unit_id/:word/:id`
+`DELETE /:prefix/:unit_id/:word/:id`
 
 * Search Index
 
